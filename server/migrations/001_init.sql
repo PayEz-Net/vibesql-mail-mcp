@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS agents (
 
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
-  from_agent_id INTEGER NOT NULL REFERENCES agents(id),
+  from_agent_id INTEGER NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   thread_id TEXT NOT NULL,
   subject TEXT,
   body TEXT NOT NULL,
@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE TABLE IF NOT EXISTS inbox (
   id SERIAL PRIMARY KEY,
-  message_id INTEGER NOT NULL REFERENCES messages(id),
-  agent_id INTEGER NOT NULL REFERENCES agents(id),
+  message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  agent_id INTEGER NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   recipient_type TEXT DEFAULT 'to',
   read_at TIMESTAMPTZ,
   archived_at TIMESTAMPTZ

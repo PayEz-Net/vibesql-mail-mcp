@@ -29,10 +29,13 @@ impl ResponseError for AppError {
                 actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
                 msg.clone(),
             ),
-            AppError::DbError(msg) => (
-                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-                msg.clone(),
-            ),
+            AppError::DbError(msg) => {
+                log::error!("Database error: {}", msg);
+                (
+                    actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database error".to_string(),
+                )
+            }
         };
         HttpResponse::build(status).json(serde_json::json!({
             "success": false,

@@ -158,6 +158,11 @@ pub struct InboxQuery {
     pub page_size: Option<i64>,
 }
 
+#[derive(Deserialize)]
+pub struct MarkReadRequest {
+    pub agent: String,
+}
+
 /// GET /v1/mail/inbox/{agent}
 pub async fn get_inbox(
     db: web::Data<DbClient>,
@@ -186,37 +191,31 @@ pub async fn get_inbox(
         (
             "SELECT COUNT(*) as cnt FROM inbox i \
              WHERE i.agent_id = $1::int AND i.read_at IS NULL AND i.archived_at IS NULL",
-            format!(
-                "SELECT i.id as inbox_id, m.id as message_id, a.name as from_agent, \
-                 a.display_name as from_agent_display, m.subject, m.body, m.body_format, \
-                 m.importance, i.recipient_type, m.created_at::text as created_at, \
-                 i.read_at::text as read_at \
-                 FROM inbox i \
-                 JOIN messages m ON m.id = i.message_id \
-                 JOIN agents a ON a.id = m.from_agent_id \
-                 WHERE i.agent_id = $1::int AND i.read_at IS NULL AND i.archived_at IS NULL \
-                 ORDER BY m.created_at DESC \
-                 LIMIT {} OFFSET {}",
-                page_size, offset
-            ),
+            "SELECT i.id as inbox_id, m.id as message_id, a.name as from_agent, \
+             a.display_name as from_agent_display, m.subject, m.body, m.body_format, \
+             m.importance, i.recipient_type, m.created_at::text as created_at, \
+             i.read_at::text as read_at \
+             FROM inbox i \
+             JOIN messages m ON m.id = i.message_id \
+             JOIN agents a ON a.id = m.from_agent_id \
+             WHERE i.agent_id = $1::int AND i.read_at IS NULL AND i.archived_at IS NULL \
+             ORDER BY m.created_at DESC \
+             LIMIT $2::int OFFSET $3::int",
         )
     } else {
         (
             "SELECT COUNT(*) as cnt FROM inbox i \
              WHERE i.agent_id = $1::int AND i.archived_at IS NULL",
-            format!(
-                "SELECT i.id as inbox_id, m.id as message_id, a.name as from_agent, \
-                 a.display_name as from_agent_display, m.subject, m.body, m.body_format, \
-                 m.importance, i.recipient_type, m.created_at::text as created_at, \
-                 i.read_at::text as read_at \
-                 FROM inbox i \
-                 JOIN messages m ON m.id = i.message_id \
-                 JOIN agents a ON a.id = m.from_agent_id \
-                 WHERE i.agent_id = $1::int AND i.archived_at IS NULL \
-                 ORDER BY m.created_at DESC \
-                 LIMIT {} OFFSET {}",
-                page_size, offset
-            ),
+            "SELECT i.id as inbox_id, m.id as message_id, a.name as from_agent, \
+             a.display_name as from_agent_display, m.subject, m.body, m.body_format, \
+             m.importance, i.recipient_type, m.created_at::text as created_at, \
+             i.read_at::text as read_at \
+             FROM inbox i \
+             JOIN messages m ON m.id = i.message_id \
+             JOIN agents a ON a.id = m.from_agent_id \
+             WHERE i.agent_id = $1::int AND i.archived_at IS NULL \
+             ORDER BY m.created_at DESC \
+             LIMIT $2::int OFFSET $3::int",
         )
     };
 
@@ -242,7 +241,14 @@ pub async fn get_inbox(
 
     // Get messages
     let msg_result = db
-        .query(&msg_sql, id_param)
+        .query(
+            msg_sql,
+            vec![
+                Value::Number(agent_id.into()),
+                Value::Number(page_size.into()),
+                Value::Number(offset.into()),
+            ],
+        )
         .await
         .map_err(|e| AppError::DbError(e))?;
 
@@ -323,7 +329,7 @@ pub async fn get_inbox(
     })))
 }
 
-/// GET /v1/mail/messages/{id} — read message (auto-marks read)
+/// GET /v1/mail/messages/{id} — read message (read-only, use POST mark_read to mark)
 pub async fn read_message(
     db: web::Data<DbClient>,
     id: web::Path<i64>,
@@ -386,14 +392,6 @@ pub async fn read_message(
         }
     }
 
-    // Auto-mark as read
-    let _ = db
-        .query(
-            "UPDATE inbox SET read_at = NOW() WHERE message_id = $1::int AND read_at IS NULL",
-            vec![Value::Number(message_id.into())],
-        )
-        .await;
-
     let response = ReadMessageResponse {
         message_id,
         from_agent: row
@@ -440,18 +438,36 @@ pub async fn read_message(
     })))
 }
 
-/// POST /v1/mail/messages/{id}/read — explicitly mark as read
+/// POST /v1/mail/messages/{id}/read — explicitly mark as read for a specific agent
 pub async fn mark_read(
     db: web::Data<DbClient>,
     id: web::Path<i64>,
+    body: web::Json<MarkReadRequest>,
 ) -> Result<HttpResponse, AppError> {
     let message_id = id.into_inner();
+    let agent_name = &body.agent;
+
+    // Resolve agent
+    let agent_result = db
+        .query(
+            "SELECT id FROM agents WHERE name = $1::text",
+            vec![Value::String(agent_name.clone())],
+        )
+        .await
+        .map_err(|e| AppError::DbError(e))?;
+
+    let agent_id = DbClient::field_i64(&agent_result, 0, "id")
+        .ok_or_else(|| AppError::NotFound(format!("Agent '{}' not found", agent_name)))?;
 
     let result = db
         .query(
-            "UPDATE inbox SET read_at = NOW() WHERE message_id = $1::int AND read_at IS NULL \
+            "UPDATE inbox SET read_at = NOW() \
+             WHERE message_id = $1::int AND agent_id = $2::int AND read_at IS NULL \
              RETURNING id",
-            vec![Value::Number(message_id.into())],
+            vec![
+                Value::Number(message_id.into()),
+                Value::Number(agent_id.into()),
+            ],
         )
         .await
         .map_err(|e| AppError::DbError(e))?;
@@ -462,6 +478,7 @@ pub async fn mark_read(
         "success": true,
         "data": {
             "message_id": message_id,
+            "agent": agent_name,
             "marked_read": updated
         }
     })))
@@ -500,22 +517,64 @@ pub async fn get_sent(
         .map_err(|e| AppError::DbError(e))?;
     let total_count = DbClient::field_i64(&count_result, 0, "cnt").unwrap_or(0);
 
-    // Get sent messages
+    // Get sent messages (LIMIT/OFFSET as params)
     let result = db
         .query(
-            &format!(
-                "SELECT m.id as message_id, m.subject, m.body, m.body_format, m.importance, \
-                 m.thread_id, m.created_at::text as created_at \
-                 FROM messages m \
-                 WHERE m.from_agent_id = $1::int \
-                 ORDER BY m.created_at DESC \
-                 LIMIT {} OFFSET {}",
-                page_size, offset
-            ),
-            vec![Value::Number(agent_id.into())],
+            "SELECT m.id as message_id, m.subject, m.body, m.body_format, m.importance, \
+             m.thread_id, m.created_at::text as created_at \
+             FROM messages m \
+             WHERE m.from_agent_id = $1::int \
+             ORDER BY m.created_at DESC \
+             LIMIT $2::int OFFSET $3::int",
+            vec![
+                Value::Number(agent_id.into()),
+                Value::Number(page_size.into()),
+                Value::Number(offset.into()),
+            ],
         )
         .await
         .map_err(|e| AppError::DbError(e))?;
+
+    // Fetch all recipients for these messages in one query (avoids N+1)
+    let recip_result = db
+        .query(
+            "SELECT i.message_id, a.name, i.recipient_type FROM inbox i \
+             JOIN agents a ON a.id = i.agent_id \
+             WHERE i.message_id IN ( \
+               SELECT m.id FROM messages m WHERE m.from_agent_id = $1::int \
+               ORDER BY m.created_at DESC LIMIT $2::int OFFSET $3::int \
+             )",
+            vec![
+                Value::Number(agent_id.into()),
+                Value::Number(page_size.into()),
+                Value::Number(offset.into()),
+            ],
+        )
+        .await
+        .map_err(|e| AppError::DbError(e))?;
+
+    // Build recipient lookup: message_id -> (to, cc)
+    let mut recip_map: std::collections::HashMap<i64, (Vec<Value>, Vec<Value>)> =
+        std::collections::HashMap::new();
+    if let Some(ref rrows) = recip_result.rows {
+        for r in rrows {
+            let mid = r.get("message_id").and_then(|v| v.as_i64()).unwrap_or(0);
+            let name = r
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let rtype = r
+                .get("recipient_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("to");
+            let entry = recip_map.entry(mid).or_insert_with(|| (Vec::new(), Vec::new()));
+            match rtype {
+                "cc" => entry.1.push(Value::String(name)),
+                _ => entry.0.push(Value::String(name)),
+            }
+        }
+    }
 
     let mut messages = Vec::new();
     if let Some(ref rows) = result.rows {
@@ -525,36 +584,10 @@ pub async fn get_sent(
                 .and_then(|v| v.as_i64())
                 .unwrap_or(0);
 
-            // Get recipients for this message
-            let recip_result = db
-                .query(
-                    "SELECT a.name, i.recipient_type FROM inbox i \
-                     JOIN agents a ON a.id = i.agent_id \
-                     WHERE i.message_id = $1::int",
-                    vec![Value::Number(msg_id.into())],
-                )
-                .await
-                .map_err(|e| AppError::DbError(e))?;
-
-            let mut to_list = Vec::new();
-            let mut cc_list = Vec::new();
-            if let Some(ref rrows) = recip_result.rows {
-                for r in rrows {
-                    let name = r
-                        .get("name")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                    let rtype = r
-                        .get("recipient_type")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("to");
-                    match rtype {
-                        "cc" => cc_list.push(Value::String(name)),
-                        _ => to_list.push(Value::String(name)),
-                    }
-                }
-            }
+            let (to_list, cc_list) = recip_map
+                .get(&msg_id)
+                .cloned()
+                .unwrap_or_else(|| (Vec::new(), Vec::new()));
 
             messages.push(json!({
                 "message_id": msg_id,
