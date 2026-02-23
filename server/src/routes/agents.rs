@@ -9,7 +9,7 @@ use crate::models::agent::{Agent, RegisterAgentRequest};
 pub async fn list_agents(db: web::Data<DbClient>) -> Result<HttpResponse, AppError> {
     let result = db
         .query(
-            "SELECT id, name, display_name, role, program, model, is_active, \
+            "SELECT id, name, display_name, role, profile, program, model, is_active, \
              created_at::text, last_active_at::text \
              FROM agents ORDER BY name",
             vec![],
@@ -47,20 +47,22 @@ pub async fn register_agent(
 
     let result = db
         .query(
-            "INSERT INTO agents (name, display_name, role, program, model) \
-             VALUES ($1::text, $2::text, $3::text, $4::text, $5::text) \
+            "INSERT INTO agents (name, display_name, role, profile, program, model) \
+             VALUES ($1::text, $2::text, $3::text, $4::text, $5::text, $6::text) \
              ON CONFLICT (name) DO UPDATE SET \
                display_name = COALESCE(EXCLUDED.display_name, agents.display_name), \
                role = COALESCE(EXCLUDED.role, agents.role), \
+               profile = COALESCE(EXCLUDED.profile, agents.profile), \
                program = COALESCE(EXCLUDED.program, agents.program), \
                model = COALESCE(EXCLUDED.model, agents.model), \
                last_active_at = NOW() \
-             RETURNING id, name, display_name, role, program, model, is_active, \
+             RETURNING id, name, display_name, role, profile, program, model, is_active, \
                created_at::text, last_active_at::text",
             vec![
                 Value::String(name.to_string()),
                 opt_str(body.display_name.as_deref()),
                 opt_str(body.role.as_deref()),
+                opt_str(body.profile.as_deref()),
                 opt_str(body.program.as_deref()),
                 opt_str(body.model.as_deref()),
             ],
@@ -96,6 +98,10 @@ fn parse_agents(rows: &Option<Vec<Value>>) -> Vec<Agent> {
                     .map(|s| s.to_string()),
                 role: row
                     .get("role")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                profile: row
+                    .get("profile")
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string()),
                 program: row

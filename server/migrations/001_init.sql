@@ -1,8 +1,15 @@
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS agents (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   display_name TEXT,
   role TEXT,
+  profile TEXT,
   program TEXT,
   model TEXT,
   is_active BOOLEAN DEFAULT true,

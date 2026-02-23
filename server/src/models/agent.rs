@@ -6,6 +6,7 @@ pub struct Agent {
     pub name: String,
     pub display_name: Option<String>,
     pub role: Option<String>,
+    pub profile: Option<String>,
     pub program: Option<String>,
     pub model: Option<String>,
     pub is_active: bool,
@@ -18,6 +19,7 @@ pub struct RegisterAgentRequest {
     pub name: String,
     pub display_name: Option<String>,
     pub role: Option<String>,
+    pub profile: Option<String>,
     pub program: Option<String>,
     pub model: Option<String>,
 }

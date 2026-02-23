@@ -172,7 +172,15 @@ async fn main() -> std::io::Result<()> {
                     .route("/stream", web::get().to(routes::stream::event_stream))
                     // Admin
                     .route("/admin/init", web::post().to(routes::admin::init_db))
-                    .route("/admin/status", web::get().to(routes::admin::status)),
+                    .route("/admin/status", web::get().to(routes::admin::status))
+                    .route(
+                        "/admin/settings",
+                        web::post().to(routes::admin::set_setting),
+                    )
+                    .route(
+                        "/admin/settings",
+                        web::get().to(routes::admin::get_settings),
+                    ),
             )
     })
     .bind(&bind_addr)?
