@@ -68,11 +68,21 @@ let muted = args.includes('--mute');
 // ---------------------------------------------------------------------------
 // API Config — VibeSQL Mail API with HMAC auth
 // ---------------------------------------------------------------------------
+// Set these environment variables before running:
+//   VIBESQL_MAIL_API_URL   — Base URL for the agent mail API (e.g. https://your-server.com/v1/agentmail)
+//   VIBESQL_MAIL_CLIENT_ID — Your HMAC client ID
+//   VIBESQL_MAIL_SECRET    — Your HMAC secret key (base64)
 const API_CONFIG = {
-  apiUrl: 'https://api.idealvibe.online/v1/agentmail',
-  clientId: 'vibe_b2d2aac0315549d9',
-  secretKey: 'KAG7vjumrWhx4CHtPSNcowYzjkbeVZmSitD8xjdZXkw='
+  apiUrl: process.env.VIBESQL_MAIL_API_URL || 'http://localhost:4100/v1/agentmail',
+  clientId: process.env.VIBESQL_MAIL_CLIENT_ID || '',
+  secretKey: process.env.VIBESQL_MAIL_SECRET || ''
 };
+
+if (!API_CONFIG.clientId || !API_CONFIG.secretKey) {
+  console.error('Error: VIBESQL_MAIL_CLIENT_ID and VIBESQL_MAIL_SECRET environment variables are required');
+  console.error('Set them before running: export VIBESQL_MAIL_CLIENT_ID=your_client_id');
+  process.exit(1);
+}
 
 // ---------------------------------------------------------------------------
 // State
