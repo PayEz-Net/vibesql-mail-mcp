@@ -36,6 +36,10 @@ impl DbClient {
         }
     }
 
+    pub fn micro_url(&self) -> &str {
+        &self.micro_url
+    }
+
     pub async fn query(&self, sql: &str, params: Vec<Value>) -> Result<QueryResponse, String> {
         let url = format!("{}/v1/query", self.micro_url);
         let req = QueryRequest {
@@ -75,7 +79,13 @@ impl DbClient {
 
         // Split on semicolons and execute each statement
         for statement in migration_sql.split(';') {
-            let stmt = statement.trim();
+            // Strip SQL comment lines — vibesql-micro rejects queries starting with --
+            let stmt: String = statement
+                .lines()
+                .filter(|line| !line.trim_start().starts_with("--"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let stmt = stmt.trim();
             if stmt.is_empty() {
                 continue;
             }

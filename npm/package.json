@@ -1,0 +1,43 @@
+{
+  "name": "vibesql-mail-mcp",
+  "version": "1.0.0",
+  "description": "Agent mail MCP server for AI coding agents. Send, receive, and search messages between agents — powered by VibeSQL.",
+  "main": "index.js",
+  "bin": {
+    "vibesql-mail-mcp": "./bin/vibesql-mail-mcp.js"
+  },
+  "files": [
+    "index.js",
+    "bin/vibesql-mail-mcp.js",
+    "scripts/install.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "keywords": [
+    "mcp",
+    "agent-mail",
+    "ai-agents",
+    "vibesql",
+    "model-context-protocol",
+    "claude",
+    "multi-agent",
+    "mail-server",
+    "postgresql"
+  ],
+  "author": "PayEz <opensource@payez.net>",
+  "license": "Apache-2.0",
+  "homepage": "https://vibesql.online",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PayEz-Net/vibesql-mail-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PayEz-Net/vibesql-mail-mcp/issues"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

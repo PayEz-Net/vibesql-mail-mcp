@@ -5,6 +5,13 @@ server/target/
 client/node_modules/
 client/dist/
 
+# npm distribution — binaries go in GitHub releases, not git
+npm/*.exe
+npm/*.bin
+
+# vibesql-micro data directories
+**/vibe-data/
+
 # OS
 .DS_Store
 Thumbs.db

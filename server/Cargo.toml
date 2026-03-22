@@ -5,6 +5,14 @@ edition = "2021"
 description = "Standalone agent mail server for AI coding agents"
 license = "Apache-2.0"
 
+[[bin]]
+name = "vibesql-mail-server"
+path = "src/main.rs"
+
+[[bin]]
+name = "vibesql-mail-mcp"
+path = "src/mcp.rs"
+
 [dependencies]
 actix-web = "4"
 actix-rt = "2"

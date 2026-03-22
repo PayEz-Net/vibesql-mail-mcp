@@ -1,0 +1,27 @@
+{
+  "name": "vibesql-mail",
+  "version": "1.0.0",
+  "description": "TUI mail client for AI agent teams",
+  "type": "module",
+  "bin": {
+    "vibesql-mail": "./bin/vibesql-mail.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node bin/vibesql-mail.js"
+  },
+  "keywords": ["agent", "mail", "tui", "ai-agents", "collaboration", "vibesql"],
+  "author": "PayEz <opensource@payez.net>",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "ink": "^5.1.0",
+    "ink-text-input": "^6.0.0",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS inbox (
 CREATE INDEX IF NOT EXISTS idx_inbox_agent ON inbox(agent_id);
 CREATE INDEX IF NOT EXISTS idx_inbox_message ON inbox(message_id);
 CREATE INDEX IF NOT EXISTS idx_inbox_unread ON inbox(agent_id) WHERE read_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_inbox_agent_created ON inbox(agent_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_inbox_agent_message_id ON inbox(agent_id, message_id DESC);
 CREATE INDEX IF NOT EXISTS idx_inbox_agent_message ON inbox(agent_id, message_id);
 
 -- Indexes: messages
